@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calificador de Terrenos — Minigranjas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root {
+  --bg: #f1f5f1;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --card-hover: #f7fdf7;
+  --border: #dde8dd;
+  --accent: #16a34a;
+  --accent2: #22c55e;
+  --text: #1a2e1a;
+  --text-mid: #374937;
+  --muted: #6b7f6b;
+  --green: #16a34a;
+  --yellow: #d97706;
+  --orange: #ea580c;
+  --red: #dc2626;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+}
+
+/* ── HEADER ── */
+header {
+  background: linear-gradient(135deg, #14532d 0%, #166534 60%, #15803d 100%);
+  border-bottom: 3px solid #bbf7d0;
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 16px rgba(22,101,52,0.25);
+}
+
+.header-left h1 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: #fff;
+}
+.header-left p {
+  font-size: 12px;
+  color: #86efac;
+  margin-top: 3px;
+}
+
+.score-panel {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.gauge-wrap {
+  position: relative;
+  width: 100px;
+  height: 56px;
+}
+
+.gauge-svg { width: 100px; height: 56px; overflow: visible; }
+
+.score-number {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -1px;
+  line-height: 1;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.3);
+}
+
+.score-label {
+  font-size: 11px;
+  color: #bbf7d0;
+  text-align: center;
+  margin-top: 2px;
+}
+
+.tier-badge {
+  padding: 7px 18px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+  transition: all 0.3s;
+  border: 2px solid transparent;
+}
+
+/* ── LAYOUT ── */
+main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 24px 60px;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
+  color: var(--accent);
+  margin: 28px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #bbf7d0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+/* ── CARD ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(22,101,52,0.07);
+}
+.card:hover {
+  background: var(--card-hover);
+  border-color: #86efac;
+  box-shadow: 0 4px 16px rgba(22,101,52,0.12);
+  transform: translateY(-1px);
+}
+
+.card-accent {
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: 12px 0 0 12px;
+  background: var(--border);
+  transition: background 0.3s;
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+  flex: 1;
+  padding-right: 8px;
+}
+
+.card-weight {
+  font-size: 11px;
+  color: var(--accent);
+  background: #dcfce7;
+  padding: 2px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.card input[type=number],
+.card select {
+  width: 100%;
+  background: #f8fdf8;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 9px 11px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.card input[type=number]:focus,
+.card select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.15);
+  background: #fff;
+}
+
+.card select option { background: #fff; color: var(--text); }
+
+.score-bar-wrap {
+  margin-top: 12px;
+}
+
+.score-bar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+  font-size: 11px;
+}
+
+.score-bar-label { color: var(--muted); }
+
+.score-val {
+  font-weight: 700;
+  font-size: 13px;
+  transition: color 0.3s;
+}
+
+.bar-bg {
+  background: #e8f5e9;
+  border-radius: 6px;
+  height: 7px;
+  overflow: visible;
+  position: relative;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.4s cubic-bezier(0.4,0,0.2,1), background 0.3s;
+  min-width: 0;
+  position: relative;
+}
+
+.bar-zero {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--muted);
+  border-radius: 2px;
+}
+
+.weighted-result {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+}
+.weighted-result span { color: var(--text-mid); font-weight: 700; }
+
+/* ── RESULTS TABLE ── */
+.results-section {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px 60px;
+}
+
+.results-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(22,101,52,0.08);
+}
+
+.results-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(90deg, #f0fdf4, #ffffff);
+}
+
+.results-header h2 { font-size: 16px; font-weight: 700; color: var(--text); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead th {
+  background: #f0fdf4;
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+  border-bottom: 2px solid #bbf7d0;
+}
+
+tbody tr {
+  border-bottom: 1px solid #f0f7f0;
+  transition: background 0.15s;
+}
+tbody tr:hover { background: #f7fdf7; }
+tbody tr:last-child { border-bottom: none; }
+
+tbody td {
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.td-name { font-weight: 600; }
+.td-value { color: var(--muted); }
+.td-score { font-family: monospace; font-weight: 700; }
+.td-weight { color: var(--muted); font-family: monospace; }
+.td-result { font-family: monospace; font-weight: 700; }
+
+.total-row td {
+  padding: 14px 16px;
+  background: #f0fdf4;
+  border-top: 2px solid var(--accent) !important;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* ── MINI BADGE ── */
+.chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ── ZONA BANNER ── */
+.codigo-wrap {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px 24px 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.codigo-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.codigo-input {
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  outline: none;
+  width: 180px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.codigo-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.15);
+}
+.codigo-input::placeholder { text-transform: none; font-weight: 400; letter-spacing: 0; color: #aaa; }
+
+.zona-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1.5px solid transparent;
+  transition: all 0.3s;
+  flex: 1;
+  min-width: 200px;
+}
+.zona-banner.zona-empty {
+  background: #f8fdf8;
+  border-color: var(--border);
+  color: var(--muted);
+}
+.zona-banner.zona-found {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+}
+.zona-banner.zona-unknown {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+.zona-nombre { font-weight: 700; color: #15803d; font-size: 14px; }
+.zona-sep { color: #86efac; }
+.zona-max { color: var(--muted); }
+.zona-max strong { color: #0369a1; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 600px) {
+  header { flex-direction: column; gap: 16px; }
+  .grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header>
+  <div class="header-left">
+    <h1>Calificador de Terrenos</h1>
+    <p>Fábrica de Minigranjas — Matriz de Tiers</p>
+  </div>
+  <div class="score-panel">
+    <div>
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 100 56">
+          <!-- Background arc -->
+          <path d="M10,50 A40,40 0 0,1 90,50" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8" stroke-linecap="round"/>
+          <!-- Colored arc -->
+          <path id="gaugeArc" d="M10,50 A40,40 0 0,1 90,50" fill="none" stroke="#22c55e" stroke-width="8" stroke-linecap="round"
+                stroke-dasharray="125.66" stroke-dashoffset="125.66"/>
+        </svg>
+        <div class="score-number" id="headerScore">0.00</div>
+      </div>
+      <div class="score-label">Puntaje Total</div>
+    </div>
+    <div>
+      <div class="tier-badge" id="tierBadge" style="background:rgba(255,255,255,0.15);color:#bbf7d0;border-color:rgba(255,255,255,0.2)">— SIN DATOS —</div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══ CÓDIGO DE TERRENO + ZONA ═══ -->
+<div class="codigo-wrap">
+  <span class="codigo-label">Código terreno</span>
+  <input
+    class="codigo-input"
+    id="codigo-terreno"
+    type="text"
+    placeholder="ej: COLCEST5"
+    maxlength="12"
+    oninput="onCodigoChange()"
+  >
+  <div class="zona-banner zona-empty" id="zona-banner">
+    <span>Ingresa el código del terreno para detectar la zona</span>
+  </div>
+</div>
+
+<!-- ═══ MAIN FORM ═══ -->
+<main>
+
+  <!-- GRUPO: LOCALIZACIÓN -->
+  <div class="section-title">Localización y Acceso</div>
+  <div class="grid">
+
+    <div class="card" id="card-via">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Distancia a la vía</div>
+        <div class="card-weight">5.73%</div>
+      </div>
+      <input type="number" id="val-via" placeholder="metros (ej: 80)" min="0" oninput="calc()">
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score <span style="color:var(--muted);font-size:10px">(30m→1.0, 300m→0.0)</span></span>
+          <span class="score-val" id="sv-via">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-via"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-via">—</span></div>
+    </div>
+
+    <div class="card" id="card-red">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Distancia a la red</div>
+        <div class="card-weight">5.64%</div>
+      </div>
+      <input type="number" id="val-red" placeholder="metros (ej: 100)" min="0" oninput="calc()">
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score <span style="color:var(--muted);font-size:10px">(10m→1.0, 400m→0.0)</span></span>
+          <span class="score-val" id="sv-red">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-red"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-red">—</span></div>
+    </div>
+
+    <div class="card" id="card-prod">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Producción específica</div>
+        <div class="card-weight">24.42%</div>
+      </div>
+      <input type="number" id="val-prod" placeholder="kWh/kWp/día (ej: 4.5)" step="0.01" oninput="calc()">
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score <span id="prod-range-label" style="color:var(--muted);font-size:10px">(4.0→0.0, 4.9→1.0)</span></span>
+          <span class="score-val" id="sv-prod">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-prod"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-prod">—</span></div>
+    </div>
+
+  </div>
+
+  <!-- GRUPO: RIESGO -->
+  <div class="section-title">Riesgos y Restricciones</div>
+  <div class="grid">
+
+    <div class="card" id="card-amenazas">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Amenazas</div>
+        <div class="card-weight">5.34%</div>
+      </div>
+      <select id="val-amenazas" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">Bajo</option>
+        <option value="0.5">Medio</option>
+        <option value="0">Alto</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-amenazas">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-amenazas"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-amenazas">—</span></div>
+    </div>
+
+    <div class="card" id="card-inundacion">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Riesgos de inundación</div>
+        <div class="card-weight">3.13%</div>
+      </div>
+      <select id="val-inundacion" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">Bajo</option>
+        <option value="0.6">Moderado</option>
+        <option value="0.3">Alto</option>
+        <option value="0">Crítico</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-inundacion">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-inundacion"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-inundacion">—</span></div>
+    </div>
+
+    <div class="card" id="card-cauce">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Ocupación de cauce</div>
+        <div class="card-weight">2.25%</div>
+      </div>
+      <select id="val-cauce" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">No</option>
+        <option value="0">Sí</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-cauce">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-cauce"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-cauce">—</span></div>
+    </div>
+
+    <div class="card" id="card-solicitud">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Área bajo solicitud comunidad / línea negra</div>
+        <div class="card-weight">4.01%</div>
+      </div>
+      <select id="val-solicitud" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">No</option>
+        <option value="0">Sí</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-solicitud">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-solicitud"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-solicitud">—</span></div>
+    </div>
+
+    <div class="card" id="card-forestal">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Aprovechamiento forestal</div>
+        <div class="card-weight">8.08%</div>
+      </div>
+      <select id="val-forestal" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">Exonerado</option>
+        <option value="0.9">CORPOCESAR / CORTOLINA / CORPAMAG / CARDIQUE / CAR / CARDER</option>
+        <option value="0.8">CORPOBOYACÁ</option>
+        <option value="0.6">CAS / CSB / CVS / CAM</option>
+        <option value="0.1">Otras corporaciones</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-forestal">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-forestal"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-forestal">—</span></div>
+    </div>
+
+    <div class="card" id="card-coexistencias">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Coexistencias</div>
+        <div class="card-weight">2.69%</div>
+      </div>
+      <select id="val-coexistencias" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">No tiene</option>
+        <option value="0.6">Tiene + buena empresa</option>
+        <option value="0">Tiene + mala empresa</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-coexistencias">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-coexistencias"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-coexistencias">—</span></div>
+    </div>
+
+  </div>
+
+  <!-- GRUPO: TERRENO -->
+  <div class="section-title">Características del Terreno</div>
+  <div class="grid">
+
+    <div class="card" id="card-adecuacion">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Adecuación del terreno</div>
+        <div class="card-weight">4.55%</div>
+      </div>
+      <select id="val-adecuacion" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">Óptimo</option>
+        <option value="0.8">Muy bueno</option>
+        <option value="0.6">Aceptable</option>
+        <option value="0.3">Deficiente</option>
+        <option value="0">Crítico</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-adecuacion">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-adecuacion"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-adecuacion">—</span></div>
+    </div>
+
+    <div class="card" id="card-servidumbre">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Servidumbre</div>
+        <div class="card-weight">6.64%</div>
+      </div>
+      <select id="val-servidumbre" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">Propia</option>
+        <option value="0.5">Pública</option>
+        <option value="0.2">Ajena</option>
+        <option value="0">Pública + Ajena</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-servidumbre">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-servidumbre"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-servidumbre">—</span></div>
+    </div>
+
+    <div class="card" id="card-estructura">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Tipo de estructura</div>
+        <div class="card-weight">5.68%</div>
+      </div>
+      <select id="val-estructura" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">Tracker</option>
+        <option value="0">Fija</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-estructura">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-estructura"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-estructura">—</span></div>
+    </div>
+
+    <div class="card" id="card-propietario">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Propietario</div>
+        <div class="card-weight">4.26%</div>
+      </div>
+      <select id="val-propietario" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">5 Estrellas</option>
+        <option value="0.8">4 Estrellas</option>
+        <option value="0.5">3 Estrellas</option>
+        <option value="0.2">2 Estrellas</option>
+        <option value="0">1 Estrella</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-propietario">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-propietario"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-propietario">—</span></div>
+    </div>
+
+  </div>
+
+  <!-- GRUPO: RED ELÉCTRICA -->
+  <div class="section-title">Red Eléctrica y Demanda</div>
+  <div class="grid">
+
+    <div class="card" id="card-or">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Operador de Red (OR)</div>
+        <div class="card-weight">5.34%</div>
+      </div>
+      <select id="val-or" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">Afinia / ESSA / EPM</option>
+        <option value="0.9">ENEL</option>
+        <option value="0.8">CENS</option>
+        <option value="0.7">CELSIA</option>
+        <option value="0.6">Aire / EBSA</option>
+        <option value="0.5">CHEC</option>
+        <option value="0.3">ENELAR</option>
+        <option value="0.2">EMSA</option>
+        <option value="0.1">Otros</option>
+        <option value="0">Sin red</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-or">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-or"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-or">—</span></div>
+    </div>
+
+    <div class="card" id="card-tension">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Tensión de la red</div>
+        <div class="card-weight">1.72%</div>
+      </div>
+      <select id="val-tension" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">34.5 kV</option>
+        <option value="0.7">13.8 kV</option>
+        <option value="0">Sin red (0 kV)</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-tension">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-tension"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-tension">—</span></div>
+    </div>
+
+    <div class="card" id="card-demanda">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Demanda del circuito / subestación</div>
+        <div class="card-weight">3.01%</div>
+      </div>
+      <input type="number" id="val-demanda" placeholder="MW disponibles (0-12)" min="0" max="12" step="0.1" oninput="calc()">
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score <span style="color:var(--muted);font-size:10px">(0→0.0, 12→1.0)</span></span>
+          <span class="score-val" id="sv-demanda">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-demanda"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-demanda">—</span></div>
+    </div>
+
+    <div class="card" id="card-cluster">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Cluster</div>
+        <div class="card-weight">5.80%</div>
+      </div>
+      <select id="val-cluster" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">Más de 2 Mgs</option>
+        <option value="0.7">2 Mgs</option>
+        <option value="0">1 Mg</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-cluster">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-cluster"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-cluster">—</span></div>
+    </div>
+
+    <div class="card" id="card-offtaker">
+      <div class="card-accent"></div>
+      <div class="card-top">
+        <div class="card-name">Offtaker</div>
+        <div class="card-weight">1.72%</div>
+      </div>
+      <select id="val-offtaker" onchange="calc()">
+        <option value="">— Seleccionar —</option>
+        <option value="1">EPM / ISA</option>
+        <option value="0.9">CELSIA / ENEL</option>
+        <option value="0.8">ESSA</option>
+        <option value="0.7">CENS / CHEC</option>
+        <option value="0.6">AFINIA / EBSA</option>
+        <option value="0.5">CEDENAR / EMSA</option>
+        <option value="0.4">DISPAC / EMCALI</option>
+        <option value="0.3">AIRE</option>
+        <option value="0.2">Otro</option>
+      </select>
+      <div class="score-bar-wrap">
+        <div class="score-bar-header">
+          <span class="score-bar-label">Score</span>
+          <span class="score-val" id="sv-offtaker">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-offtaker"></div></div>
+      </div>
+      <div class="weighted-result">Aporte ponderado: <span id="wr-offtaker">—</span></div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ═══ RESULTS TABLE ═══ -->
+<div class="results-section">
+  <div class="results-card">
+    <div class="results-header">
+      <h2>Resumen de Calificación</h2>
+      <div id="resultBadge" class="tier-badge" style="background:rgba(100,116,139,0.2);color:#94a3b8">Ingrese datos</div>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Criterio</th>
+            <th>Valor Ingresado</th>
+            <th>Score</th>
+            <th>Peso</th>
+            <th>Aporte</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody">
+          <!-- Filled by JS -->
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="3" style="color:var(--muted)">PUNTAJE TOTAL PONDERADO</td>
+            <td style="color:var(--muted);font-family:monospace">100.00%</td>
+            <td id="totalCell" style="color:#22c55e;font-family:monospace">—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── BOTONES DE ACCIÓN ── -->
+  <div style="display:flex;gap:12px;padding:16px 24px 0;max-width:1400px;margin:0 auto;flex-wrap:wrap;">
+    <button onclick="descargarPDF()" id="btn-pdf"
+      style="display:flex;align-items:center;gap:8px;background:#16a34a;color:#fff;border:none;border-radius:10px;padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;transition:background 0.2s;"
+      onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Descargar PDF
+    </button>
+    <button onclick="limpiarFormulario()"
+      style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.07);color:#94a3b8;border:1px solid #2d3a52;border-radius:10px;padding:12px 24px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;"
+      onmouseover="this.style.background='rgba(255,255,255,0.12)'" onmouseout="this.style.background='rgba(255,255,255,0.07)'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M1 4v6h6M23 20v-6h-6"/>
+        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+      </svg>
+      Limpiar formulario
+    </button>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// ZONAS — PRODUCCIÓN ESPECÍFICA POR DEPARTAMENTO
+// ─────────────────────────────────────────────
+const ZONAS = {
+  'LAG': { nombre: 'La Guajira',    max: 4.9 },
+  'CES': { nombre: 'Cesar',         max: 4.8 },
+  'MAG': { nombre: 'Magdalena',     max: 4.6 },
+  'ATL': { nombre: 'Atlántico',     max: 4.5 },
+  'BOL': { nombre: 'Bolívar',       max: 4.5 },
+  'ANT': { nombre: 'Antioquia',     max: 4.5 },
+  'SAN': { nombre: 'Santander',     max: 4.8 },
+  'CUN': { nombre: 'Cundinamarca',  max: 4.2 },
+  'BOY': { nombre: 'Boyacá',        max: 4.6 },
+  'VAL': { nombre: 'Valle',         max: 4.5 },
+};
+
+let currentZona = null; // { nombre, max } | null
+
+function onCodigoChange() {
+  const codigo = (document.getElementById('codigo-terreno').value || '').toUpperCase().trim();
+  if (codigo.length >= 6 && codigo.startsWith('COL')) {
+    const deptCode = codigo.slice(3, 6);
+    currentZona = ZONAS[deptCode] || null;
+  } else {
+    currentZona = null;
+  }
+  updateZonaBanner(codigo);
+  calc();
+}
+
+function updateZonaBanner(codigo) {
+  const banner  = document.getElementById('zona-banner');
+  const label   = document.getElementById('prod-range-label');
+  const zoneMax = currentZona ? currentZona.max : 4.9;
+
+  if (label) label.textContent = `(4.0→0.0, ${zoneMax}→1.0)`;
+
+  if (!banner) return;
+  if (currentZona) {
+    banner.className = 'zona-banner zona-found';
+    banner.innerHTML = `
+      <span>📍</span>
+      <span class="zona-nombre">${currentZona.nombre}</span>
+      <span class="zona-sep">·</span>
+      <span class="zona-max">Máx. producción: <strong>${currentZona.max} kWh/kWp/día</strong></span>`;
+  } else if (codigo && codigo.length >= 3) {
+    banner.className = 'zona-banner zona-unknown';
+    banner.innerHTML = `<span>⚠️</span> Departamento no reconocido — se usa máximo global <strong>4.9 kWh/kWp/día</strong>`;
+  } else {
+    banner.className = 'zona-banner zona-empty';
+    banner.innerHTML = `<span>Ingresa el código del terreno para detectar la zona</span>`;
+  }
+}
+
+// ─────────────────────────────────────────────
+// CRITERIA DEFINITION
+// ─────────────────────────────────────────────
+const CRITERIA = [
+  {
+    id: 'via', name: 'Distancia a la vía (m)', weight: 0.0573,
+    type: 'linear', min: 30, minScore: 1, max: 300, maxScore: 0,
+    unit: 'm'
+  },
+  {
+    id: 'prod', name: 'Producción específica (kWh/kWp/día)', weight: 0.2442,
+    type: 'linear', min: 4, minScore: 0, max: 4.9, maxScore: 1,
+    unit: 'kWh/kWp/día'
+  },
+  {
+    id: 'red', name: 'Distancia a la red (m)', weight: 0.0564,
+    type: 'linear', min: 10, minScore: 1, max: 400, maxScore: 0,
+    unit: 'm'
+  },
+  {
+    id: 'amenazas', name: 'Amenazas', weight: 0.0534,
+    type: 'select', unit: ''
+  },
+  {
+    id: 'or', name: 'Operador de Red (OR)', weight: 0.0534,
+    type: 'select', unit: ''
+  },
+  {
+    id: 'propietario', name: 'Propietario', weight: 0.0426,
+    type: 'select', unit: ''
+  },
+  {
+    id: 'estructura', name: 'Tipo de estructura', weight: 0.0568,
+    type: 'select', unit: ''
+  },
+  {
+    id: 'adecuacion', name: 'Adecuación del terreno', weight: 0.0455,
+    type: 'select', unit: ''
+  },
+  {
+    id: 'inundacion', name: 'Riesgos de inundación', weight: 0.0313,
+    type: 'select', unit: ''
+  },
+  {
+    id: 'cauce', name: 'Ocupación de cauce', weight: 0.0225,
+    type: 'select', unit: ''
+  },
+  {
+    id: 'servidumbre', name: 'Servidumbre', weight: 0.0664,
+    type: 'select', unit: ''
+  },
+  {
+    id: 'forestal', name: 'Aprovechamiento forestal', weight: 0.0808,
+    type: 'select', unit: ''
+  },
+  {
+    id: 'coexistencias', name: 'Coexistencias', weight: 0.0269,
+    type: 'select', unit: ''
+  },
+  {
+    id: 'solicitud', name: 'Área bajo solicitud comunidad / línea negra', weight: 0.0401,
+    type: 'select', unit: ''
+  },
+  {
+    id: 'demanda', name: 'Demanda del circuito / subestación (MW)', weight: 0.0301,
+    type: 'linear', min: 0, minScore: 0, max: 12, maxScore: 1,
+    unit: 'MW'
+  },
+  {
+    id: 'tension', name: 'Tensión de la red', weight: 0.0172,
+    type: 'select', unit: ''
+  },
+  {
+    id: 'cluster', name: 'Cluster', weight: 0.0580,
+    type: 'select', unit: ''
+  },
+  {
+    id: 'offtaker', name: 'Offtaker', weight: 0.0172,
+    type: 'select', unit: ''
+  },
+];
+
+// ─────────────────────────────────────────────
+// SCORING LOGIC
+// ─────────────────────────────────────────────
+function linearScore(value, min, minScore, max, maxScore) {
+  if (isNaN(value)) return null;
+  return minScore + (value - min) * (maxScore - minScore) / (max - min);
+}
+
+function getScore(id) {
+  const el = document.getElementById('val-' + id);
+  if (!el) return null;
+  const c = CRITERIA.find(c => c.id === id);
+  if (!c) return null;
+
+  if (c.type === 'linear') {
+    const v = parseFloat(el.value);
+    if (el.value === '' || isNaN(v)) return null;
+    // Para producción específica, el techo varía según la zona del terreno
+    const maxVal = (id === 'prod' && currentZona) ? currentZona.max : c.max;
+    return linearScore(v, c.min, c.minScore, maxVal, c.maxScore);
+  } else {
+    if (el.value === '') return null;
+    return parseFloat(el.value);
+  }
+}
+
+function getDisplayValue(id) {
+  const el = document.getElementById('val-' + id);
+  if (!el) return '—';
+  if (el.tagName === 'SELECT') {
+    if (el.value === '') return '—';
+    return el.options[el.selectedIndex].text;
+  }
+  return el.value === '' ? '—' : el.value;
+}
+
+// ─────────────────────────────────────────────
+// COLOR HELPERS
+// ─────────────────────────────────────────────
+function scoreColor(score) {
+  if (score === null) return '#6b7f6b';
+  const clamped = Math.max(0, Math.min(1, score));
+  if (clamped >= 0.7) return '#15803d';
+  if (clamped >= 0.5) return '#d97706';
+  if (clamped >= 0.3) return '#ea580c';
+  return '#dc2626';
+}
+
+function scoreBg(score) {
+  if (score === null) return 'transparent';
+  const clamped = Math.max(0, Math.min(1, score));
+  if (clamped >= 0.7) return 'rgba(34,197,94,0.15)';
+  if (clamped >= 0.5) return 'rgba(245,158,11,0.15)';
+  if (clamped >= 0.3) return 'rgba(249,115,22,0.15)';
+  return 'rgba(239,68,68,0.15)';
+}
+
+// ─────────────────────────────────────────────
+// GAUGE ARC UPDATE
+// ─────────────────────────────────────────────
+function updateGauge(score) {
+  const arc = document.getElementById('gaugeArc');
+  const total = 125.66; // approx half-circle path length
+  const fill = score !== null ? Math.max(0, Math.min(1, score)) * total : 0;
+  arc.style.strokeDashoffset = total - fill;
+  arc.style.stroke = score !== null ? scoreColor(score) : 'rgba(255,255,255,0.08)';
+}
+
+// ─────────────────────────────────────────────
+// MAIN CALC
+// ─────────────────────────────────────────────
+function calc() {
+  let total = 0;
+  let totalWeight = 0;
+  let filledCount = 0;
+
+  const rows = [];
+
+  CRITERIA.forEach(c => {
+    const score = getScore(c.id);
+    const clampedScore = score !== null ? Math.max(0, score) : null;
+    const weighted = clampedScore !== null ? clampedScore * c.weight : null;
+    const displayVal = getDisplayValue(c.id);
+
+    // Update card UI
+    const svEl = document.getElementById('sv-' + c.id);
+    const barEl = document.getElementById('bar-' + c.id);
+    const wrEl = document.getElementById('wr-' + c.id);
+    const cardEl = document.getElementById('card-' + c.id);
+    const accentEl = cardEl ? cardEl.querySelector('.card-accent') : null;
+
+    if (svEl) {
+      if (score === null) {
+        svEl.textContent = '—';
+        svEl.style.color = '#64748b';
+      } else {
+        svEl.textContent = score.toFixed(4);
+        svEl.style.color = scoreColor(score);
+        if (score < 0) {
+          svEl.textContent = score.toFixed(4) + ' ⚠';
+          svEl.style.color = '#ef4444';
+        }
+      }
+    }
+
+    if (barEl) {
+      const pct = score !== null ? Math.max(0, Math.min(1, score)) * 100 : 0;
+      barEl.style.width = pct + '%';
+      barEl.style.background = score !== null ? scoreColor(score) : 'transparent';
+    }
+
+    if (wrEl) {
+      if (weighted === null) {
+        wrEl.textContent = '—';
+      } else {
+        wrEl.textContent = weighted.toFixed(4);
+        wrEl.style.color = scoreColor(score);
+      }
+    }
+
+    if (accentEl) {
+      accentEl.style.background = score !== null ? scoreColor(score) : '#334155';
+    }
+
+    if (weighted !== null) {
+      total += weighted;
+      totalWeight += c.weight;
+      filledCount++;
+    }
+
+    rows.push({
+      name: c.name,
+      value: displayVal,
+      score,
+      clampedScore,
+      weight: c.weight,
+      weighted
+    });
+  });
+
+  // Update header score
+  const scoreDisplay = filledCount > 0 ? total : null;
+  const headerEl = document.getElementById('headerScore');
+  headerEl.textContent = scoreDisplay !== null ? (scoreDisplay * 100).toFixed(1) + '%' : '—';
+  headerEl.style.color = scoreDisplay !== null ? scoreColor(scoreDisplay) : '#64748b';
+  updateGauge(scoreDisplay);
+
+  // Tier badge
+  const badge = document.getElementById('tierBadge');
+  const resultBadge = document.getElementById('resultBadge');
+  if (scoreDisplay === null || filledCount < 3) {
+    [badge, resultBadge].forEach(b => {
+      b.textContent = '— SIN DATOS —';
+      b.style.background = b.id === 'tierBadge' ? 'rgba(255,255,255,0.15)' : '#f1f5f9';
+      b.style.color = b.id === 'tierBadge' ? '#bbf7d0' : '#64748b';
+    });
+  } else {
+    let tier, color, bg;
+    if (scoreDisplay > 0.80) { tier = 'TIER 1 — Prioritario'; color = '#14532d'; bg = '#bbf7d0'; }
+    else if (scoreDisplay >= 0.65) { tier = 'TIER 2 — Buen potencial'; color = '#1e40af'; bg = '#bfdbfe'; }
+    else if (scoreDisplay >= 0.55) { tier = 'TIER 3 — Aceptable'; color = '#92400e'; bg = '#fde68a'; }
+    else { tier = 'TIER 4 — No recomendado'; color = '#7f1d1d'; bg = '#fecaca'; }
+    [badge, resultBadge].forEach(b => {
+      b.textContent = tier;
+      b.style.color = color;
+      b.style.background = bg;
+    });
+  }
+
+  // Update results table
+  const tbody = document.getElementById('resultsBody');
+  tbody.innerHTML = rows.map(r => {
+    const sc = r.clampedScore;
+    const color = r.score !== null ? scoreColor(r.score) : '#64748b';
+    const wt = r.weighted !== null ? (r.weighted).toFixed(4) : '—';
+    const scoreText = r.score !== null ? r.score.toFixed(4) : '—';
+    const clampNote = r.score !== null && r.score < 0 ? '<br><span style="font-size:10px;color:#ef4444">⚠ Fuera de rango (→ 0)</span>' : '';
+    return `
+      <tr>
+        <td class="td-name">${r.name}</td>
+        <td class="td-value">${r.value}</td>
+        <td class="td-score" style="color:${color}">${scoreText}${clampNote}</td>
+        <td class="td-weight">${(r.weight*100).toFixed(2)}%</td>
+        <td class="td-result" style="color:${color}">${wt}</td>
+      </tr>`;
+  }).join('');
+
+  // Total cell
+  const totalCell = document.getElementById('totalCell');
+  if (scoreDisplay !== null) {
+    totalCell.textContent = scoreDisplay.toFixed(4) + ' (' + (scoreDisplay * 100).toFixed(2) + '%)';
+    totalCell.style.color = scoreColor(scoreDisplay);
+  } else {
+    totalCell.textContent = '—';
+    totalCell.style.color = '#64748b';
+  }
+}
+
+// Init table on load
+calc();
+
+// ─────────────────────────────────────────────
+// LIMPIAR FORMULARIO
+// ─────────────────────────────────────────────
+function limpiarFormulario() {
+  document.getElementById('codigo-terreno').value = '';
+  currentZona = null;
+  updateZonaBanner('');
+  CRITERIA.forEach(c => {
+    const el = document.getElementById('val-' + c.id);
+    if (!el) return;
+    if (el.tagName === 'SELECT') el.value = '';
+    else el.value = '';
+  });
+  calc();
+}
+
+// ─────────────────────────────────────────────
+// DESCARGA PDF
+// ─────────────────────────────────────────────
+function descargarPDF() {
+  const { jsPDF } = window.jspdf;
+  if (!jsPDF) { alert('Error cargando jsPDF. Verifica tu conexión a internet.'); return; }
+
+  // Recopilar datos actuales
+  const codigo   = document.getElementById('codigo-terreno').value.toUpperCase().trim() || 'SIN CÓDIGO';
+  const zona     = currentZona ? currentZona.nombre : 'No detectada';
+  const zoneMax  = currentZona ? currentZona.max : 4.9;
+
+  const rows = [];
+  let total = 0;
+  CRITERIA.forEach(c => {
+    const score        = getScore(c.id);
+    const clampedScore = score !== null ? Math.max(0, score) : null;
+    const weighted     = clampedScore !== null ? clampedScore * c.weight : null;
+    const displayVal   = getDisplayValue(c.id);
+    if (weighted !== null) total += weighted;
+    rows.push({ name: c.name, value: displayVal, score, clampedScore, weight: c.weight, weighted });
+  });
+
+  const pct = (total * 100).toFixed(2);
+  let tierText, tierRGB;
+  if (total > 0.80)       { tierText = 'TIER 1 — Prioritario';     tierRGB = [22, 163, 74];   }
+  else if (total >= 0.65) { tierText = 'TIER 2 — Buen potencial';  tierRGB = [37, 99, 235];   }
+  else if (total >= 0.55) { tierText = 'TIER 3 — Aceptable';       tierRGB = [202, 138, 4];   }
+  else                    { tierText = 'TIER 4 — No recomendado';   tierRGB = [220, 38, 38];   }
+
+  const doc = new jsPDF();
+  const W = 210;
+
+  // ── Encabezado ──
+  doc.setFillColor(15, 31, 61);
+  doc.rect(0, 0, W, 42, 'F');
+  doc.setFillColor(27, 58, 110);
+  doc.rect(0, 36, W, 6, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(20); doc.setFont(undefined, 'bold');
+  doc.text('EVALUACIÓN DE TERRENO', W / 2, 14, { align: 'center' });
+  doc.setFontSize(11); doc.setFont(undefined, 'normal');
+  doc.text('Fábrica de Minigranjas — Matriz de Tiers', W / 2, 23, { align: 'center' });
+  doc.setFontSize(10);
+  doc.text(`Código: ${codigo}   ·   Zona: ${zona}   ·   Generado: ${new Date().toLocaleDateString('es-CO')}`, W / 2, 32, { align: 'center' });
+
+  // ── Resultado principal ──
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(13); doc.setFont(undefined, 'bold');
+  doc.text('RESULTADO FINAL', 20, 56);
+
+  doc.setDrawColor(...tierRGB); doc.setLineWidth(1.5);
+  doc.roundedRect(20, 61, W - 40, 32, 3, 3);
+
+  doc.setTextColor(...tierRGB);
+  doc.setFontSize(30); doc.setFont(undefined, 'bold');
+  doc.text(`${pct}%`, W / 2, 76, { align: 'center' });
+  doc.setFontSize(14);
+  doc.text(tierText, W / 2, 86, { align: 'center' });
+
+  // Info zona
+  doc.setTextColor(80, 80, 80);
+  doc.setFontSize(9); doc.setFont(undefined, 'normal');
+  doc.text(`Departamento: ${zona}   ·   Máx. producción específica: ${zoneMax} kWh/kWp/día`, W / 2, 99, { align: 'center' });
+
+  // ── Tabla de desglose ──
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(12); doc.setFont(undefined, 'bold');
+  doc.text('DESGLOSE POR CRITERIO', 20, 112);
+
+  const tableData = rows.map(r => [
+    r.name,
+    r.value === '—' ? 'Sin dato' : String(r.value),
+    r.score !== null ? r.score.toFixed(4) : '—',
+    (r.weight * 100).toFixed(2) + '%',
+    r.weighted !== null ? (r.weighted * 100).toFixed(2) + '%' : '—'
+  ]);
+
+  doc.autoTable({
+    startY: 116,
+    head: [['Criterio', 'Valor ingresado', 'Score', 'Peso', 'Aporte']],
+    body: tableData,
+    foot: [['', '', '', 'TOTAL', `${pct}%`]],
+    theme: 'striped',
+    headStyles:  { fillColor: [15, 31, 61], textColor: [255,255,255], fontStyle: 'bold', fontSize: 9 },
+    footStyles:  { fillColor: [240, 240, 240], textColor: [0,0,0], fontStyle: 'bold', fontSize: 10 },
+    bodyStyles:  { fontSize: 8.5 },
+    columnStyles: {
+      0: { cellWidth: 68 },
+      1: { cellWidth: 52 },
+      2: { cellWidth: 22, halign: 'center' },
+      3: { cellWidth: 20, halign: 'center' },
+      4: { cellWidth: 22, halign: 'center' }
+    },
+    margin: { left: 20, right: 20 },
+    didParseCell: function(data) {
+      // Colorear la fila del total en el footer
+      if (data.section === 'foot') {
+        data.cell.styles.fillColor = tierRGB;
+        data.cell.styles.textColor = [255,255,255];
+      }
+    }
+  });
+
+  // ── Pie de página ──
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8); doc.setTextColor(160, 160, 160);
+    doc.text(`Página ${i} de ${pageCount}  ·  Calificador de Terrenos — Minigranjas`, W / 2, 289, { align: 'center' });
+  }
+
+  const filename = `Evaluacion_${codigo}_${new Date().toISOString().slice(0,10)}.pdf`;
+  doc.save(filename);
+}
+</script>
+</body>
+</html>
