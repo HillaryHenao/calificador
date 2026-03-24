@@ -1,16 +1,4 @@
-const { Pool } = require('pg');
-
-const pool = new Pool({
-  host:     process.env.DB_HOST,
-  port:     parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASS,
-  ssl:      false,
-  max:      1,
-  idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 8000,
-});
+const { Client } = require('pg');
 
 // Map DB operator ID → select score value + display label
 const OR_MAP = {
@@ -27,7 +15,6 @@ const OR_MAP = {
   emsa:        { score: '0.2', label: 'EMSA' },
 };
 
-// Map DB tension string → select score value
 const TENSION_MAP = {
   '34.5 kv': { score: '1',   label: '34.5 kV' },
   '13.8 kv': { score: '0.7', label: '13.8 kV' },
@@ -35,7 +22,6 @@ const TENSION_MAP = {
 };
 
 module.exports = async (req, res) => {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -45,8 +31,20 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'Parámetro code requerido' });
   }
 
-  const client = await pool.connect();
+  const client = new Client({
+    host:            process.env.DB_HOST,
+    port:            parseInt(process.env.DB_PORT || '5432'),
+    database:        process.env.DB_NAME,
+    user:            process.env.DB_USER,
+    password:        process.env.DB_PASS,
+    ssl:             { rejectUnauthorized: false },
+    connectionTimeoutMillis: 8000,
+    query_timeout:           8000,
+  });
+
   try {
+    await client.connect();
+
     const { rows } = await client.query(`
       SELECT
         t.name                  AS codigo,
@@ -72,36 +70,22 @@ module.exports = async (req, res) => {
     }
 
     const row = rows[0];
-
-    // Map OR
-    const orKey = (row.operador_raw || '').toLowerCase();
-    const orData = OR_MAP[orKey] || { score: '0.1', label: 'Otros' };
-
-    // Map tension
-    const tensionKey = (row.tension_raw || '').toLowerCase().trim();
-    const tensionData = TENSION_MAP[tensionKey] || null;
+    const orKey      = (row.operador_raw  || '').toLowerCase().trim();
+    const tensionKey = (row.tension_raw   || '').toLowerCase().trim();
 
     return res.status(200).json({
-      codigo:               row.codigo,
+      codigo:                row.codigo,
       produccion_especifica: row.produccion_especifica ?? null,
-      distancia_via:        row.distancia_via ?? null,
-      distancia_red:        row.distancia_red ?? null,
-      operador: {
-        raw:   row.operador_raw,
-        score: orData.score,
-        label: orData.label,
-      },
-      tension: tensionData ? {
-        raw:   row.tension_raw,
-        score: tensionData.score,
-        label: tensionData.label,
-      } : null,
+      distancia_via:         row.distancia_via         ?? null,
+      distancia_red:         row.distancia_red         ?? null,
+      operador: orKey ? (OR_MAP[orKey] || { score: '0.1', label: 'Otros' }) : null,
+      tension:  tensionKey ? (TENSION_MAP[tensionKey] || null) : null,
     });
 
   } catch (err) {
     console.error('DB error:', err.message);
-    return res.status(500).json({ error: 'Error consultando la base de datos' });
+    return res.status(500).json({ error: 'Error de BD: ' + err.message });
   } finally {
-    client.release();
+    await client.end().catch(() => {});
   }
 };
