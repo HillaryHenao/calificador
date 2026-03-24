@@ -393,6 +393,31 @@ tbody td { padding: 10px 16px; font-size: 13px; color: var(--text); }
 /* ── CHIP ── */
 .chip { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
 
+/* ── AUTOFILL INDICATOR ── */
+.autofill-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--yellow);
+  margin-left: 6px;
+  vertical-align: middle;
+  title: 'Valor cargado automáticamente';
+}
+.card.autofilled { border-color: rgba(246,255,114,0.35); }
+.card.autofilled .card-accent { background: var(--yellow) !important; }
+
+.db-status {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+.db-status.loading { background: rgba(246,255,114,0.15); color: var(--yellow); }
+.db-status.ok      { background: rgba(34,197,94,0.15);  color: #4ade80; }
+.db-status.error   { background: rgba(239,68,68,0.15);  color: #f87171; }
+.db-status.idle    { display: none; }
+
 /* ── RESPONSIVE ── */
 @media (max-width: 600px) {
   header { flex-direction: column; gap: 16px; }
@@ -442,6 +467,7 @@ tbody td { padding: 10px 16px; font-size: 13px; color: var(--text); }
   <div class="zona-banner zona-empty" id="zona-banner">
     <span>Ingresa el código del terreno para detectar la zona</span>
   </div>
+  <div class="db-status idle" id="db-status"></div>
 </div>
 
 <!-- ═══ MAIN FORM ═══ -->
@@ -940,6 +966,10 @@ const ZONAS = {
 
 let currentZona = null; // { nombre, max } | null
 
+// IDs que se autocompletan desde la BD
+const AUTOFILLED_IDS = new Set();
+let fetchTimer = null;
+
 function onCodigoChange() {
   const codigo = (document.getElementById('codigo-terreno').value || '').toUpperCase().trim();
   if (codigo.length >= 6 && codigo.startsWith('COL')) {
@@ -949,7 +979,100 @@ function onCodigoChange() {
     currentZona = null;
   }
   updateZonaBanner(codigo);
+
+  // Debounce DB call — espera 600ms después del último teclazo
+  clearTimeout(fetchTimer);
+  if (codigo.length >= 6 && codigo.startsWith('COL')) {
+    fetchTimer = setTimeout(() => fetchFromDB(codigo), 600);
+  } else {
+    clearAutofill();
+  }
   calc();
+}
+
+function setDbStatus(state, msg) {
+  const el = document.getElementById('db-status');
+  if (!el) return;
+  el.className = 'db-status ' + state;
+  el.textContent = msg;
+}
+
+async function fetchFromDB(codigo) {
+  setDbStatus('loading', '⏳ Consultando BD...');
+  try {
+    const res  = await fetch(`/api/terrain?code=${encodeURIComponent(codigo)}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      setDbStatus('error', `⚠ ${data.error || 'No encontrado'}`);
+      clearAutofill();
+      return;
+    }
+
+    applyAutofill(data);
+    const filled = [
+      data.produccion_especifica != null ? '☀ Producción' : '',
+      data.distancia_via         != null ? '🛣 Vía'        : '',
+      data.distancia_red         != null ? '⚡ Red'         : '',
+      data.operador              != null ? '🏭 OR'          : '',
+      data.tension               != null ? '🔌 Tensión'     : '',
+    ].filter(Boolean);
+    setDbStatus('ok', `✓ Auto-llenado: ${filled.join(' · ')}`);
+
+  } catch (e) {
+    setDbStatus('error', '⚠ Sin conexión a BD');
+    clearAutofill();
+  }
+}
+
+function applyAutofill(data) {
+  clearAutofill();
+
+  const fill = (id, value) => {
+    const el = document.getElementById('val-' + id);
+    if (!el || value == null) return;
+    el.value = value;
+    AUTOFILLED_IDS.add(id);
+    const card = document.getElementById('card-' + id);
+    if (card) card.classList.add('autofilled');
+  };
+
+  fill('prod',    data.produccion_especifica);
+  fill('via',     data.distancia_via);
+  fill('red',     data.distancia_red);
+
+  // OR: seleccionar la opción cuyo value coincide con el score
+  if (data.operador) {
+    const sel = document.getElementById('val-or');
+    if (sel) {
+      sel.value = data.operador.score;
+      AUTOFILLED_IDS.add('or');
+      const card = document.getElementById('card-or');
+      if (card) card.classList.add('autofilled');
+    }
+  }
+
+  // Tensión
+  if (data.tension) {
+    const sel = document.getElementById('val-tension');
+    if (sel) {
+      sel.value = data.tension.score;
+      AUTOFILLED_IDS.add('tension');
+      const card = document.getElementById('card-tension');
+      if (card) card.classList.add('autofilled');
+    }
+  }
+
+  calc();
+}
+
+function clearAutofill() {
+  AUTOFILLED_IDS.forEach(id => {
+    const card = document.getElementById('card-' + id);
+    if (card) card.classList.remove('autofilled');
+  });
+  AUTOFILLED_IDS.clear();
+  setDbStatus('idle', '');
 }
 
 function updateZonaBanner(codigo) {
