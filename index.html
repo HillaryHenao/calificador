@@ -406,16 +406,36 @@ tbody td { padding: 10px 16px; font-size: 13px; color: var(--text); }
 .card.autofilled { border-color: rgba(246,255,114,0.35); }
 .card.autofilled .card-accent { background: var(--yellow) !important; }
 
+.btn-consultar {
+  background: var(--purple);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-consultar:hover  { background: var(--purple-deep); color: var(--yellow); }
+.btn-consultar:active { transform: scale(0.97); }
+.btn-consultar:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .db-status {
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 6px;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
   transition: all 0.3s;
   white-space: nowrap;
+  font-weight: 600;
 }
-.db-status.loading { background: rgba(246,255,114,0.15); color: var(--yellow); }
-.db-status.ok      { background: rgba(34,197,94,0.15);  color: #4ade80; }
-.db-status.error   { background: rgba(239,68,68,0.15);  color: #f87171; }
+.db-status.loading { background: rgba(246,255,114,0.15); color: var(--yellow);  border: 1px solid rgba(246,255,114,0.3); }
+.db-status.ok      { background: rgba(34,197,94,0.12);  color: #16a34a;        border: 1px solid rgba(34,197,94,0.3); }
+.db-status.error   { background: rgba(239,68,68,0.10);  color: #dc2626;        border: 1px solid rgba(239,68,68,0.3); }
 .db-status.idle    { display: none; }
 
 /* ── RESPONSIVE ── */
@@ -463,7 +483,14 @@ tbody td { padding: 10px 16px; font-size: 13px; color: var(--text); }
     placeholder="ej: COLCEST5"
     maxlength="12"
     oninput="onCodigoChange()"
+    onkeydown="if(event.key==='Enter') consultarBD()"
   >
+  <button class="btn-consultar" id="btn-consultar" onclick="consultarBD()" title="Buscar terreno en base de datos">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    Consultar
+  </button>
   <div class="zona-banner zona-empty" id="zona-banner">
     <span>Ingresa el código del terreno para detectar la zona</span>
   </div>
@@ -980,14 +1007,31 @@ function onCodigoChange() {
   }
   updateZonaBanner(codigo);
 
-  // Debounce DB call — espera 600ms después del último teclazo
+  // Debounce DB call — espera 800ms después del último teclazo
   clearTimeout(fetchTimer);
-  if (codigo.length >= 6 && codigo.startsWith('COL')) {
-    fetchTimer = setTimeout(() => fetchFromDB(codigo), 600);
+  if (codigo.length >= 6) {
+    fetchTimer = setTimeout(() => fetchFromDB(codigo), 800);
   } else {
     clearAutofill();
   }
   calc();
+}
+
+function consultarBD() {
+  const inputEl = document.getElementById('codigo-terreno');
+  const codigo = (inputEl.value || '').toUpperCase().trim();
+  if (!codigo) return;
+  // normalizar el input a mayúsculas
+  inputEl.value = codigo;
+  clearTimeout(fetchTimer);
+  // actualizar zona antes de consultar
+  if (codigo.length >= 6 && codigo.startsWith('COL')) {
+    currentZona = ZONAS[codigo.slice(3, 6)] || null;
+  } else {
+    currentZona = null;
+  }
+  updateZonaBanner(codigo);
+  fetchFromDB(codigo);
 }
 
 function setDbStatus(state, msg) {
@@ -998,13 +1042,15 @@ function setDbStatus(state, msg) {
 }
 
 async function fetchFromDB(codigo) {
+  const btn = document.getElementById('btn-consultar');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Consultando...'; }
   setDbStatus('loading', '⏳ Consultando BD...');
   try {
     const res  = await fetch(`/api/terrain?code=${encodeURIComponent(codigo)}`);
     const data = await res.json();
 
     if (!res.ok) {
-      setDbStatus('error', `⚠ ${data.error || 'No encontrado'}`);
+      setDbStatus('error', `⚠ ${data.error || 'Terreno no encontrado'}`);
       clearAutofill();
       return;
     }
@@ -1017,11 +1063,17 @@ async function fetchFromDB(codigo) {
       data.operador              != null ? '🏭 OR'          : '',
       data.tension               != null ? '🔌 Tensión'     : '',
     ].filter(Boolean);
-    setDbStatus('ok', `✓ Auto-llenado: ${filled.join(' · ')}`);
+    setDbStatus('ok', filled.length ? `✓ Cargado: ${filled.join(' · ')}` : `✓ Terreno encontrado — sin datos en BD`);
 
   } catch (e) {
     setDbStatus('error', '⚠ Sin conexión a BD');
     clearAutofill();
+  } finally {
+    const btn = document.getElementById('btn-consultar');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Consultar`;
+    }
   }
 }
 
