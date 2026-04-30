@@ -22,27 +22,26 @@ const OR_MAP = {
   cetsa:          { score: '0.1', label: 'CETSA' },
 };
 
-// tension_level viene como número string sin unidad (ej: '13.8', '34.5')
 function mapTension(raw) {
   if (!raw) return null;
   const kv = parseFloat(raw);
   if (isNaN(kv)) return null;
-  if (kv >= 34)  return { score: '1',   label: `${raw} kV` };
-  if (kv >= 10)  return { score: '0.7', label: `${raw} kV` };
+  if (kv >= 34) return { score: '1',   label: `${raw} kV` };
+  if (kv >= 10) return { score: '0.7', label: `${raw} kV` };
   return null;
 }
 
-function dbConfig(name) {
-  return {
+function makeClient(dbName) {
+  return new Client({
     host:     process.env.DB_HOST,
     port:     parseInt(process.env.DB_PORT || '5432'),
-    database: name,
+    database: dbName,
     user:     process.env.DB_USER,
     password: process.env.DB_PASS,
     ssl:      { rejectUnauthorized: false },
-    connectionTimeoutMillis: 8000,
-    query_timeout:           8000,
-  };
+    connectionTimeoutMillis: 5000,
+    query_timeout:           5000,
+  });
 }
 
 module.exports = async (req, res) => {
@@ -53,13 +52,11 @@ module.exports = async (req, res) => {
   const code = (req.query.code || '').trim().toUpperCase();
   if (!code) return res.status(400).json({ error: 'Parámetro code requerido' });
 
-  const main = new Client(dbConfig(process.env.DB_NAME));
-  const reqs = new Client(dbConfig(process.env.DB2_NAME));
+  const main = makeClient(process.env.DB_NAME);
 
   try {
     await main.connect();
 
-    // Datos del terreno y su proyecto más reciente
     const { rows } = await main.query(`
       SELECT
         t.name             AS codigo,
@@ -82,9 +79,10 @@ module.exports = async (req, res) => {
     const row = rows[0];
     const orKey = (row.operador_raw || '').toLowerCase().trim();
 
-    // Tensión desde requestsdb usando el project_id
+    // Tensión desde requestsdb — consulta en paralelo mientras tenemos los datos del terreno
     let tension = null;
-    if (row.project_id) {
+    if (row.project_id && process.env.DB2_NAME) {
+      const reqs = makeClient(process.env.DB2_NAME);
       try {
         await reqs.connect();
         const { rows: tRows } = await reqs.query(`
@@ -95,6 +93,8 @@ module.exports = async (req, res) => {
         if (tRows.length > 0) tension = mapTension(tRows[0].tension_level);
       } catch (_) {
         // requestsdb no disponible — continúa sin tensión
+      } finally {
+        await reqs.end().catch(() => {});
       }
     }
 
@@ -112,6 +112,5 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'Error de BD: ' + err.message });
   } finally {
     await main.end().catch(() => {});
-    await reqs.end().catch(() => {});
   }
 };

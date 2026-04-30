@@ -2,7 +2,7 @@
   "functions": {
     "api/terrain.js": {
       "memory": 128,
-      "maxDuration": 10
+      "maxDuration": 15
     }
   }
 }
