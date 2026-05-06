@@ -39,8 +39,8 @@ function makeClient(dbName) {
     user:     process.env.DB_USER,
     password: process.env.DB_PASS,
     ssl:      { rejectUnauthorized: false },
-    connectionTimeoutMillis: 5000,
-    query_timeout:           5000,
+    connectionTimeoutMillis: 8000,
+    query_timeout:           8000,
   });
 }
 
@@ -79,7 +79,6 @@ module.exports = async (req, res) => {
     const row = rows[0];
     const orKey = (row.operador_raw || '').toLowerCase().trim();
 
-    // Tensión desde requestsdb — consulta en paralelo mientras tenemos los datos del terreno
     let tension = null;
     if (row.project_id && process.env.DB2_NAME) {
       const reqs = makeClient(process.env.DB2_NAME);
