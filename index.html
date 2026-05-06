@@ -1041,12 +1041,17 @@ function setDbStatus(state, msg) {
   el.textContent = msg;
 }
 
+// URL del backend — localhost en desarrollo, producción en Vercel
+const API_BASE = window.location.hostname === 'localhost'
+  ? 'http://localhost:8002'
+  : 'https://board.unergy.io';
+
 async function fetchFromDB(codigo) {
   const btn = document.getElementById('btn-consultar');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Consultando...'; }
   setDbStatus('loading', '⏳ Consultando BD...');
   try {
-    const res  = await fetch(`/api/terrain?code=${encodeURIComponent(codigo)}`);
+    const res  = await fetch(`${API_BASE}/api/terrain?code=${encodeURIComponent(codigo)}`);
     const data = await res.json();
 
     if (!res.ok) {
@@ -1057,11 +1062,16 @@ async function fetchFromDB(codigo) {
 
     applyAutofill(data);
     const filled = [
-      data.produccion_especifica != null ? '☀ Producción' : '',
-      data.distancia_via         != null ? '🛣 Vía'        : '',
-      data.distancia_red         != null ? '⚡ Red'         : '',
-      data.operador              != null ? '🏭 OR'          : '',
-      data.tension               != null ? '🔌 Tensión'     : '',
+      data.produccion_especifica != null ? '☀ Producción'    : '',
+      data.distancia_via         != null ? '🛣 Vía'           : '',
+      data.distancia_red         != null ? '⚡ Red'            : '',
+      data.operador              != null ? '🏭 OR'             : '',
+      data.offtaker              != null ? '🤝 Offtaker'      : '',
+      data.tension               != null ? '🔌 Tensión'       : '',
+      data.coexistencias         != null ? '🏗 Coexistencias' : '',
+      data.adecuacion            != null ? '🏔 Adecuación'    : '',
+      data.inundacion            != null ? '🌊 Inundación'    : '',
+      data.cauce                 != null ? '🌿 Cauce'         : '',
     ].filter(Boolean);
     setDbStatus('ok', filled.length ? `✓ Cargado: ${filled.join(' · ')}` : `✓ Terreno encontrado — sin datos en BD`);
 
@@ -1093,27 +1103,28 @@ function applyAutofill(data) {
   fill('via',     data.distancia_via);
   fill('red',     data.distancia_red);
 
-  // OR: seleccionar la opción cuyo value coincide con el score
-  if (data.operador) {
-    const sel = document.getElementById('val-or');
-    if (sel) {
-      sel.value = data.operador.score;
-      AUTOFILLED_IDS.add('or');
-      const card = document.getElementById('card-or');
-      if (card) card.classList.add('autofilled');
-    }
-  }
+  // Selector helper — busca el option más cercano al score dado
+  const fillSelect = (id, score) => {
+    const sel = document.getElementById('val-' + id);
+    if (!sel || score == null) return;
+    sel.value = score;
+    AUTOFILLED_IDS.add(id);
+    const card = document.getElementById('card-' + id);
+    if (card) card.classList.add('autofilled');
+  };
 
+  // OR
+  if (data.operador)      fillSelect('or',            data.operador.score);
+  // Offtaker = mismo OR
+  if (data.offtaker)      fillSelect('offtaker',      data.offtaker.score);
   // Tensión
-  if (data.tension) {
-    const sel = document.getElementById('val-tension');
-    if (sel) {
-      sel.value = data.tension.score;
-      AUTOFILLED_IDS.add('tension');
-      const card = document.getElementById('card-tension');
-      if (card) card.classList.add('autofilled');
-    }
-  }
+  if (data.tension)       fillSelect('tension',       data.tension.score);
+  // Coexistencias
+  if (data.coexistencias) fillSelect('coexistencias', data.coexistencias.score);
+  // Civil
+  if (data.adecuacion)    fillSelect('adecuacion',    data.adecuacion.score);
+  if (data.inundacion)    fillSelect('inundacion',    data.inundacion.score);
+  if (data.cauce)         fillSelect('cauce',         data.cauce.score);
 
   calc();
 }
