@@ -405,6 +405,19 @@ tbody td { padding: 10px 16px; font-size: 13px; color: var(--text); }
 }
 .card.autofilled { border-color: rgba(246,255,114,0.35); }
 .card.autofilled .card-accent { background: var(--yellow) !important; }
+.card.autofilled select:disabled,
+.card.autofilled input:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    135deg,
+    transparent,
+    transparent 4px,
+    rgba(145,91,216,0.06) 4px,
+    rgba(145,91,216,0.06) 8px
+  );
+}
 
 .btn-consultar {
   background: var(--purple);
@@ -630,13 +643,16 @@ tbody td { padding: 10px 16px; font-size: 13px; color: var(--text); }
     <div class="card" id="card-solicitud">
       <div class="card-accent"></div>
       <div class="card-top">
-        <div class="card-name">Área bajo solicitud comunidad / línea negra</div>
+        <div class="card-name">Cambio en la cobertura vegetal</div>
         <div class="card-weight">4.01%</div>
       </div>
       <select id="val-solicitud" onchange="calc()">
         <option value="">— Seleccionar —</option>
-        <option value="1">No</option>
-        <option value="0">Sí</option>
+        <option value="1">Alta</option>
+        <option value="0.75">Medio/alto</option>
+        <option value="0.5">Medio</option>
+        <option value="0.25">Medio/bajo</option>
+        <option value="0">Bajo</option>
       </select>
       <div class="score-bar-wrap">
         <div class="score-bar-header">
@@ -856,6 +872,7 @@ tbody td { padding: 10px 16px; font-size: 13px; color: var(--text); }
         <div class="card-weight">3.01%</div>
       </div>
       <input type="number" id="val-demanda" placeholder="MW disponibles (0-12)" min="0" max="12" step="0.1" oninput="calc()">
+      <div id="demanda-pending" style="display:none;margin-top:6px;font-size:11px;color:var(--purple-soft);background:rgba(145,91,216,0.12);border:1px solid rgba(145,91,216,0.3);border-radius:6px;padding:4px 8px;">⏳ Pendiente por validar</div>
       <div class="score-bar-wrap">
         <div class="score-bar-header">
           <span class="score-bar-label">Score <span style="color:var(--muted);font-size:10px">(0→0.0, 12→1.0)</span></span>
@@ -1043,7 +1060,7 @@ function setDbStatus(state, msg) {
 
 // URL del backend — localhost en desarrollo, producción en Vercel
 const API_BASE = window.location.hostname === 'localhost'
-  ? 'http://localhost:8002'
+  ? 'http://localhost:3000'
   : 'https://board.unergy.io';
 
 async function fetchFromDB(codigo) {
@@ -1094,6 +1111,7 @@ function applyAutofill(data) {
     const el = document.getElementById('val-' + id);
     if (!el || value == null) return;
     el.value = value;
+    el.disabled = true;
     AUTOFILLED_IDS.add(id);
     const card = document.getElementById('card-' + id);
     if (card) card.classList.add('autofilled');
@@ -1103,38 +1121,95 @@ function applyAutofill(data) {
   fill('via',     data.distancia_via);
   fill('red',     data.distancia_red);
 
-  // Selector helper — busca el option más cercano al score dado
+  const PENDING_BADGE_STYLE = 'margin-top:6px;font-size:11px;color:var(--purple-soft);background:rgba(145,91,216,0.12);border:1px solid rgba(145,91,216,0.3);border-radius:6px;padding:4px 8px;';
+
   const fillSelect = (id, score) => {
     const sel = document.getElementById('val-' + id);
     if (!sel || score == null) return;
     sel.value = score;
+    sel.disabled = true;
     AUTOFILLED_IDS.add(id);
     const card = document.getElementById('card-' + id);
     if (card) card.classList.add('autofilled');
   };
 
-  // OR
-  if (data.operador)      fillSelect('or',            data.operador.score);
-  // Offtaker = mismo OR
-  if (data.offtaker)      fillSelect('offtaker',      data.offtaker.score);
-  // Tensión
-  if (data.tension)       fillSelect('tension',       data.tension.score);
-  // Coexistencias
-  if (data.coexistencias) fillSelect('coexistencias', data.coexistencias.score);
-  // Civil
-  if (data.adecuacion)    fillSelect('adecuacion',    data.adecuacion.score);
-  if (data.inundacion)    fillSelect('inundacion',    data.inundacion.score);
-  if (data.cauce)         fillSelect('cauce',         data.cauce.score);
+  const setPendingSelect = (id) => {
+    const sel = document.getElementById('val-' + id);
+    if (!sel) return;
+    sel.disabled = true;
+    AUTOFILLED_IDS.add(id);
+    const badge = document.createElement('div');
+    badge.className = 'pending-badge';
+    badge.style.cssText = PENDING_BADGE_STYLE;
+    badge.textContent = '⏳ Pendiente por validar';
+    sel.insertAdjacentElement('afterend', badge);
+    const card = document.getElementById('card-' + id);
+    if (card) card.classList.add('autofilled');
+  };
+
+  const applySelect = (id, fieldData) => {
+    if (!fieldData) return;
+    if (fieldData.pending) setPendingSelect(id);
+    else fillSelect(id, fieldData.score);
+  };
+
+  const setInfoSelect = (id, message) => {
+    const sel = document.getElementById('val-' + id);
+    if (!sel) return;
+    const badge = document.createElement('div');
+    badge.className = 'pending-badge';
+    badge.style.cssText = PENDING_BADGE_STYLE;
+    badge.textContent = message;
+    sel.insertAdjacentElement('afterend', badge);
+    const card = document.getElementById('card-' + id);
+    if (card) card.classList.add('autofilled');
+  };
+
+  applySelect('or',       data.operador);
+  applySelect('offtaker', data.offtaker);
+  applySelect('tension',  data.tension);
+  if (data.coexistencias) {
+    if (data.coexistencias.has) setInfoSelect('coexistencias', '⚠️ Tiene coexistencias — selecciona buena/mala empresa');
+    else fillSelect('coexistencias', data.coexistencias.score);
+  }
+  applySelect('adecuacion',   data.adecuacion);
+  applySelect('inundacion',   data.inundacion);
+  applySelect('cauce',        data.cauce);
+  applySelect('servidumbre',  data.servidumbre);
+  applySelect('estructura',   data.estructura);
+  applySelect('forestal',     data.forestal);
+
+  // Demanda del circuito
+  const pendingEl = document.getElementById('demanda-pending');
+  if (data.demanda) {
+    if (data.demanda.value != null) {
+      fill('demanda', data.demanda.value);
+      if (pendingEl) pendingEl.style.display = 'none';
+    } else if (data.demanda.pending) {
+      if (pendingEl) pendingEl.style.display = 'block';
+      const demandaInput = document.getElementById('val-demanda');
+      if (demandaInput) demandaInput.disabled = true;
+    }
+  } else {
+    if (pendingEl) pendingEl.style.display = 'none';
+  }
 
   calc();
 }
 
 function clearAutofill() {
   AUTOFILLED_IDS.forEach(id => {
+    const el = document.getElementById('val-' + id);
+    if (el) { el.disabled = false; el.value = ''; }
     const card = document.getElementById('card-' + id);
     if (card) card.classList.remove('autofilled');
   });
   AUTOFILLED_IDS.clear();
+  document.querySelectorAll('.pending-badge').forEach(el => el.remove());
+  const pendingEl = document.getElementById('demanda-pending');
+  if (pendingEl) pendingEl.style.display = 'none';
+  const demandaInput = document.getElementById('val-demanda');
+  if (demandaInput) demandaInput.disabled = false;
   setDbStatus('idle', '');
 }
 
