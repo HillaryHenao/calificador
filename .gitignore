@@ -1,0 +1,23 @@
+# Vercel
+.vercel
+
+# Dependencies
+node_modules/
+
+# Environment variables (sensitive)
+.env.local
+.env.*.local
+.env.vercel.temp
+
+# Claude Code
+.claude/
+
+# Temporary and exploration files
+_tmp_*.py
+_tmp_*.js
+explore_*.js
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
